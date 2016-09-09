@@ -216,5 +216,6 @@ FakesAssemblies/
 *.opt
 
 *.o
+*.so
 *.a
 *.bak
