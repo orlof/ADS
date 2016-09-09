@@ -4,6 +4,7 @@ VPATH = AdsLib
 LIBS = -lpthread
 LIB_NAME = AdsLib-$(OS_NAME).a
 SHARED_LIB_NAME = obj/AdsLib.so
+INSTALL_DIR=../pyads/pyads
 CXX :=$(CROSS_COMPILE)$(CXX)
 CFLAGS += -std=c++11
 CFLAGS += -pedantic
