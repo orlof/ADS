@@ -4,7 +4,6 @@ VPATH = AdsLib
 LIBS = -lpthread
 LIB_NAME = AdsLib-$(OS_NAME).a
 SHARED_LIB_NAME = obj/AdsLib.so
-INSTALL_DIR=example
 CXX :=$(CROSS_COMPILE)$(CXX)
 CFLAGS += -std=c++11
 CFLAGS += -pedantic
@@ -41,7 +40,7 @@ AdsLibTest.bin: AdsLibTest/main.o $(LIB_NAME)
 test: AdsLibTest.bin
 	./$<
 
-install: $(LIB_NAME) AdsLib.h AdsDef.h
+install: $(SHARED_LIB_NAME)
 	cp $? $(INSTALL_DIR)/
 
 clean:
