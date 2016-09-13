@@ -7,13 +7,10 @@ Modified for use with the pyads python wrapper: https://github.com/MrLeeh/pyads
 ```bash
 git clone https://github.com/dabrowne/ADS.git
 
-# change into root of the cloned repository
+# Change into root of the cloned repository
 cd ADS
 
-# build the library
-make
-
-# install to /usr/lib/
+# Build the library and install to /usr/lib/
 sudo make install
 ```
 
