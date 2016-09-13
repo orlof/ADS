@@ -13,9 +13,8 @@ cd ADS
 # build the library
 make
 
-# copy compiled library to the target location $(INSTALL_DIR) in the Makefile
-# NB: You need to manually adjust this to the location of your choosing
-make install
+# install to /usr/lib/
+sudo make install
 ```
 
 ## Modifications from original repo
