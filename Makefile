@@ -30,6 +30,7 @@ endif
 all: $(SHARED_LIB_NAME)
 
 $(OBJ_FILES): $(OBJ_DIR)%.o: %.cpp
+	mkdir -p $(OBJ_DIR)
 	$(CXX) -c $(CFLAGS) $< -o $@ -I AdsLib/
 
 $(SHARED_LIB_NAME): $(OBJ_FILES)
