@@ -372,11 +372,11 @@ struct AdsNotificationAttrib {
  * @brief This structure is also passed to the callback function.
  */
 struct AdsNotificationHeader {
-    /** Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC). */
-    uint64_t nTimeStamp;
-
     /** Handle for the notification. Is specified when the notification is defined. */
     uint32_t hNotification;
+
+    /** Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC). */
+    uint64_t nTimeStamp;
 
     /** Number of bytes transferred. */
     uint32_t cbSampleSize;
