@@ -25,12 +25,38 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstring>
 #include <exception>
 #include <sstream>
 #include <system_error>
 
+static const struct addrinfo addrinfo = []() {
+                                            struct addrinfo a;
+                                            memset(&a, 0, sizeof(a));
+                                            a.ai_family = AF_INET;
+                                            a.ai_socktype = SOCK_STREAM;
+                                            a.ai_protocol = IPPROTO_TCP;
+                                            return a;
+                                        } ();
+
+uint32_t getIpv4(const std::string& addr)
+{
+    struct addrinfo* res;
+
+    InitSocketLibrary();
+    const auto status = getaddrinfo(addr.c_str(), nullptr, &addrinfo, &res);
+    if (status) {
+        throw std::runtime_error("Invalid IPv4 address or unknown hostname: " + addr);
+    }
+
+    const auto value = ((struct sockaddr_in*)res->ai_addr)->sin_addr.s_addr;
+    freeaddrinfo(res);
+    WSACleanup();
+    return ntohl(value);
+}
+
 IpV4::IpV4(const std::string& addr)
-    : value(ntohl(inet_addr(addr.c_str())))
+    : value(getIpv4(addr))
 {}
 
 IpV4::IpV4(uint32_t __val)
@@ -164,8 +190,6 @@ TcpSocket::TcpSocket(const IpV4 ip, const uint16_t port)
 uint32_t TcpSocket::Connect() const
 {
     const uint32_t addr = ntohl(m_SockAddress.sin_addr.s_addr);
-    LOG_INFO("Connecting to " << ((addr & 0xff000000) >> 24) << '.' << ((addr & 0xff0000) >> 16) << '.' <<
-             ((addr & 0xff00) >> 8) << '.' << (addr & 0xff));
 
     if (::connect(m_Socket, reinterpret_cast<const sockaddr*>(&m_SockAddress), sizeof(m_SockAddress))) {
         LOG_ERROR("Connect TCP socket failed with: " << WSAGetLastError());
@@ -179,6 +203,9 @@ uint32_t TcpSocket::Connect() const
         LOG_ERROR("Read local tcp/ip address failed");
         return 0;
     }
+    LOG_INFO("Connected to " << ((addr & 0xff000000) >> 24) << '.' << ((addr & 0xff0000) >> 16) << '.' <<
+             ((addr & 0xff00) >> 8) << '.' << (addr & 0xff));
+
     return ntohl(source.sin_addr.s_addr);
 }
 

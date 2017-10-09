@@ -23,7 +23,11 @@
 #include "AdsLib.h"
 #include "AmsRouter.h"
 
-static AmsRouter router;
+static AmsRouter& GetRouter()
+{
+    static AmsRouter router;
+    return router;
+}
 
 #define ASSERT_PORT(port) do { \
         if ((port) <= 0 || (port) > UINT16_MAX) { \
@@ -41,32 +45,39 @@ static AmsRouter router;
 long AdsAddRoute(const AmsNetId ams, const char* ip)
 {
     try {
-        return router.AddRoute(ams, IpV4(ip));
+        return GetRouter().AddRoute(ams, IpV4(ip));
     } catch (const std::bad_alloc&) {
         return GLOBALERR_NO_MEMORY;
+    } catch (const std::runtime_error&) {
+        return GLOBALERR_TARGET_PORT;
     }
 }
 
 void AdsDelRoute(const AmsNetId ams)
 {
-    router.DelRoute(ams);
+    GetRouter().DelRoute(ams);
 }
 
 long AdsPortCloseEx(long port)
 {
     ASSERT_PORT(port);
-    return router.ClosePort((uint16_t)port);
+    return GetRouter().ClosePort((uint16_t)port);
 }
 
 long AdsPortOpenEx()
 {
-    return router.OpenPort();
+    return GetRouter().OpenPort();
 }
 
 long AdsGetLocalAddressEx(long port, AmsAddr* pAddr)
 {
     ASSERT_PORT_AND_AMSADDR(port, pAddr);
-    return router.GetLocalAddress((uint16_t)port, pAddr);
+    return GetRouter().GetLocalAddress((uint16_t)port, pAddr);
+}
+
+void AdsSetLocalAddress(const AmsNetId ams)
+{
+    GetRouter().SetLocalAddress(ams);
 }
 
 long AdsSyncReadReqEx2(long           port,
@@ -97,7 +108,7 @@ long AdsSyncReadReqEx2(long           port,
             indexOffset,
             bufferLength
         });
-        return router.AdsRequest<AoEReadResponseHeader>(request);
+        return GetRouter().AdsRequest<AoEReadResponseHeader>(request);
     } catch (const std::bad_alloc&) {
         return GLOBALERR_NO_MEMORY;
     }
@@ -120,7 +131,7 @@ long AdsSyncReadDeviceInfoReqEx(long port, const AmsAddr* pAddr, char* devName, 
             sizeof(buffer),
             buffer
         };
-        const auto status = router.AdsRequest<AoEResponseHeader>(request);
+        const auto status = GetRouter().AdsRequest<AoEResponseHeader>(request);
         if (!status) {
             version->version = buffer[0];
             version->revision = buffer[1];
@@ -149,7 +160,7 @@ long AdsSyncReadStateReqEx(long port, const AmsAddr* pAddr, uint16_t* adsState, 
             sizeof(buffer),
             buffer
         };
-        const auto status = router.AdsRequest<AoEResponseHeader>(request);
+        const auto status = GetRouter().AdsRequest<AoEResponseHeader>(request);
         if (!status) {
             *adsState = qFromLittleEndian<uint16_t>(buffer);
             *devState = qFromLittleEndian<uint16_t>(buffer + sizeof(*adsState));
@@ -192,7 +203,7 @@ long AdsSyncReadWriteReqEx2(long           port,
             readLength,
             writeLength
         });
-        return router.AdsRequest<AoEReadResponseHeader>(request);
+        return GetRouter().AdsRequest<AoEReadResponseHeader>(request);
     } catch (const std::bad_alloc&) {
         return GLOBALERR_NO_MEMORY;
     }
@@ -224,7 +235,7 @@ long AdsSyncWriteReqEx(long           port,
             indexOffset,
             bufferLength
         });
-        return router.AdsRequest<AoEReadResponseHeader>(request);
+        return GetRouter().AdsRequest<AoEReadResponseHeader>(request);
     } catch (const std::bad_alloc&) {
         return GLOBALERR_NO_MEMORY;
     }
@@ -252,7 +263,7 @@ long AdsSyncWriteControlReqEx(long           port,
             devState,
             bufferLength
         });
-        return router.AdsRequest<AoEResponseHeader>(request);
+        return GetRouter().AdsRequest<AoEResponseHeader>(request);
     } catch (const std::bad_alloc&) {
         return GLOBALERR_NO_MEMORY;
     }
@@ -291,8 +302,8 @@ long AdsSyncAddDeviceNotificationReqEx(long                         port,
             pAttrib->nMaxDelay,
             pAttrib->nCycleTime
         });
-        Notification notify { pFunc, hUser, pAttrib->cbLength, *pAddr, (uint16_t)port };
-        return router.AddNotification(
+        auto notify = std::make_shared<Notification>(pFunc, hUser, pAttrib->cbLength, *pAddr, (uint16_t)port);
+        return GetRouter().AddNotification(
             request,
             pNotification,
             notify);
@@ -304,7 +315,7 @@ long AdsSyncAddDeviceNotificationReqEx(long                         port,
 long AdsSyncDelDeviceNotificationReqEx(long port, const AmsAddr* pAddr, uint32_t hNotification)
 {
     ASSERT_PORT_AND_AMSADDR(port, pAddr);
-    return router.DelNotification((uint16_t)port, pAddr, hNotification);
+    return GetRouter().DelNotification((uint16_t)port, pAddr, hNotification);
 }
 
 long AdsSyncGetTimeoutEx(long port, uint32_t* timeout)
@@ -313,11 +324,11 @@ long AdsSyncGetTimeoutEx(long port, uint32_t* timeout)
     if (!timeout) {
         return ADSERR_CLIENT_INVALIDPARM;
     }
-    return router.GetTimeout((uint16_t)port, *timeout);
+    return GetRouter().GetTimeout((uint16_t)port, *timeout);
 }
 
 long AdsSyncSetTimeoutEx(long port, uint32_t timeout)
 {
     ASSERT_PORT(port);
-    return router.SetTimeout((uint16_t)port, timeout);
+    return GetRouter().SetTimeout((uint16_t)port, timeout);
 }

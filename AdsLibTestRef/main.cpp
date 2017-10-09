@@ -1,7 +1,12 @@
 
 #include <Windows.h>
 #include <TcAdsDef.h>
+#ifndef GLOBALERR_TARGET_PORT
 #define GLOBALERR_TARGET_PORT 0x06
+#endif
+#ifndef GLOBALERR_MISSING_ROUTE
+#define GLOBALERR_MISSING_ROUTE 0x07
+#endif
 #include <TcAdsAPI.h>
 #include <cstdint>
 #include <chrono>
@@ -18,17 +23,28 @@ static const AmsNetId serverNetId {192, 168, 0, 231, 1, 1};
 static AmsAddr server {serverNetId, AMSPORT_R0_PLC_TC3};
 static AmsAddr serverBadPort {serverNetId, 1000};
 
+/** helper for our Notification callback, this one is not included in TcAdsDll, but AdsLib */
+std::ostream& operator<<(std::ostream& os, const AmsNetId& netId)
+{
+    return os << (int)netId.b[0] << '.' << (int)netId.b[1] << '.' << (int)netId.b[2] << '.' <<
+           (int)netId.b[3] << '.' << (int)netId.b[4] << '.' << (int)netId.b[5];
+}
+
 static size_t g_NumNotifications = 0;
 static void __stdcall NotifyCallback(AmsAddr* pAddr, AdsNotificationHeader* pNotification, unsigned long hUser)
 {
-    ++g_NumNotifications;
 #if 0
-    std::cout << std::setfill('0') <<
+    static std::ostream& notificationOutput = std::cout;
+#else
+    static std::ostream notificationOutput(0);
+#endif
+    ++g_NumNotifications;
+    notificationOutput << std::setfill('0') <<
+        "NetId 0x" << pAddr->netId <<
         "hUser 0x" << std::hex << std::setw(4) << hUser <<
         " sample time: " << std::dec << pNotification->nTimeStamp <<
         " sample size: " << std::dec << pNotification->cbSampleSize <<
         " value: 0x" << std::hex << (int)pNotification->data[0] << '\n';
-#endif
 }
 
 void print(const AmsAddr& addr, std::ostream& out)
@@ -66,13 +82,15 @@ struct TestAds : test_base<TestAds> {
 
     void testAdsPortOpenEx(const std::string&)
     {
-        static const size_t NUM_TEST_PORTS = 2;
+        static const size_t NUM_TEST_PORTS = 481;
         long port[NUM_TEST_PORTS];
 
         for (size_t i = 0; i < NUM_TEST_PORTS; ++i) {
             port[i] = testPortOpen(out);
             fructose_loop_assert(i, 0 != port[i]);
         }
+        // there should be no more ports available at ADS router
+        fructose_assert(0 == testPortOpen(out));
 
         for (size_t i = 0; i < NUM_TEST_PORTS; ++i) {
             if (port[i]) {
@@ -120,7 +138,8 @@ struct TestAds : test_base<TestAds> {
         // provide unknown AmsAddr
         bytesRead = 0xDEADBEEF;
         AmsAddr unknown { { 1, 2, 3, 4, 5, 6 }, AMSPORT_R0_PLC_TC3 };
-        fructose_assert(0x7 == AdsSyncReadReqEx2(port, &unknown, 0x4020, 0, sizeof(buffer), &buffer, &bytesRead));
+        fructose_assert(GLOBALERR_MISSING_ROUTE ==
+                        AdsSyncReadReqEx2(port, &unknown, 0x4020, 0, sizeof(buffer), &buffer, &bytesRead));
         fructose_assert(0 == bytesRead);
 
         // provide nullptr to bytesRead
@@ -180,7 +199,7 @@ struct TestAds : test_base<TestAds> {
 
         // provide unknown AmsAddr
         AmsAddr unknown { { 1, 2, 3, 4, 5, 6 }, AMSPORT_R0_PLC_TC3 };
-        fructose_assert(0x7 == AdsSyncReadDeviceInfoReqEx(port, &unknown, devName, &version));
+        fructose_assert(GLOBALERR_MISSING_ROUTE == AdsSyncReadDeviceInfoReqEx(port, &unknown, devName, &version));
 
         // provide nullptr to devName/version
         fructose_assert(ADSERR_CLIENT_INVALIDPARM == AdsSyncReadDeviceInfoReqEx(port, &server, nullptr, &version));
@@ -210,7 +229,7 @@ struct TestAds : test_base<TestAds> {
 
         // provide unknown AmsAddr
         AmsAddr unknown { { 1, 2, 3, 4, 5, 6 }, AMSPORT_R0_PLC_TC3 };
-        fructose_assert(0x7 == AdsSyncReadStateReqEx(port, &unknown, &adsState, &devState));
+        fructose_assert(GLOBALERR_MISSING_ROUTE == AdsSyncReadStateReqEx(port, &unknown, &adsState, &devState));
 
         // provide nullptr to adsState/devState
         fructose_assert(ADSERR_CLIENT_INVALIDPARM == AdsSyncReadStateReqEx(port, &server, nullptr, &devState));
@@ -270,7 +289,7 @@ struct TestAds : test_base<TestAds> {
         // provide unknown AmsAddr
         bytesRead = 0xDEADBEEF;
         AmsAddr unknown { { 1, 2, 3, 4, 5, 6 }, AMSPORT_R0_PLC_TC3 };
-        fructose_assert(0x7 ==
+        fructose_assert(GLOBALERR_MISSING_ROUTE ==
                         AdsSyncReadWriteReqEx2(port, &unknown, 0xF003, 0, sizeof(buffer), &buffer, sizeof(handleName),
                                                handleName,
                                                &bytesRead));
@@ -377,7 +396,8 @@ struct TestAds : test_base<TestAds> {
 
         // provide unknown AmsAddr
         AmsAddr unknown { { 1, 2, 3, 4, 5, 6 }, AMSPORT_R0_PLC_TC3 };
-        fructose_assert(0x7 == AdsSyncWriteReqEx(port, &unknown, 0x4020, 0, sizeof(outBuffer), &outBuffer));
+        fructose_assert(GLOBALERR_MISSING_ROUTE ==
+                        AdsSyncWriteReqEx(port, &unknown, 0x4020, 0, sizeof(outBuffer), &outBuffer));
 
         // provide nullptr to writeBuffer
         fructose_assert(ADSERR_CLIENT_INVALIDPARM ==
@@ -436,7 +456,12 @@ struct TestAds : test_base<TestAds> {
 
         // provide unknown AmsAddr
         AmsAddr unknown { { 1, 2, 3, 4, 5, 6 }, AMSPORT_R0_PLC_TC3 };
-        fructose_assert(0x7 == AdsSyncWriteControlReqEx(port, &unknown, ADSSTATE_STOP, 0, 0, nullptr));
+        fructose_assert(GLOBALERR_MISSING_ROUTE == AdsSyncWriteControlReqEx(port,
+                                                                            &unknown,
+                                                                            ADSSTATE_STOP,
+                                                                            0,
+                                                                            0,
+                                                                            nullptr));
 
         // provide invalid adsState
         fructose_assert(ADSERR_DEVICE_SRVNOTSUPP ==
@@ -478,7 +503,7 @@ struct TestAds : test_base<TestAds> {
 
         // provide unknown AmsAddr
         AmsAddr unknown { { 1, 2, 3, 4, 5, 6 }, AMSPORT_R0_PLC_TC3 };
-        fructose_assert(0x7 ==
+        fructose_assert(GLOBALERR_MISSING_ROUTE ==
                         AdsSyncAddDeviceNotificationReqEx(port, &unknown, 0x4020, 0, &attrib, &NotifyCallback, hUser,
                                                           &notification[0]));
 

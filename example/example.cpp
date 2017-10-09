@@ -2,11 +2,14 @@
 #include "AdsLib.h"
 
 #include <iostream>
+#include <iomanip>
 
 static void NotifyCallback(const AmsAddr* pAddr, const AdsNotificationHeader* pNotification, uint32_t hUser)
 {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(pNotification + 1);
-    std::cout << "hUser 0x" << std::hex << hUser <<
+    std::cout << std::setfill('0') <<
+        "NetId 0x" << pAddr->netId <<
+        "hUser 0x" << std::hex << hUser <<
         " sample time: " << std::dec << pNotification->nTimeStamp <<
         " sample size: " << std::dec << pNotification->cbSampleSize <<
         " value:";
@@ -91,7 +94,7 @@ void notificationByNameExample(std::ostream& out, long port, const AmsAddr& serv
     uint32_t handle;
 
     out << __FUNCTION__ << "():\n";
-    handle = getHandleByNameExample(out, port, server, "MAIN.byByte");
+    handle = getHandleByNameExample(out, port, server, "MAIN.byByte[4]");
 
     const long addStatus = AdsSyncAddDeviceNotificationReqEx(port,
                                                              &server,
@@ -140,7 +143,7 @@ void readByNameExample(std::ostream& out, long port, const AmsAddr& server)
     uint32_t handle;
 
     out << __FUNCTION__ << "():\n";
-    handle = getHandleByNameExample(out, port, server, "MAIN.byByte");
+    handle = getHandleByNameExample(out, port, server, "MAIN.byByte[4]");
 
     for (size_t i = 0; i < 8; ++i) {
         const long status = AdsSyncReadReqEx2(port,
@@ -175,7 +178,7 @@ void readStateExample(std::ostream& out, long port, const AmsAddr& server)
 void runExample(std::ostream& out)
 {
     static const AmsNetId remoteNetId { 192, 168, 0, 231, 1, 1 };
-    static const char remoteIpV4[] = "192.168.0.232";
+    static const char remoteIpV4[] = "ads-server";
 
     // add local route to your EtherCAT Master
     if (AdsAddRoute(remoteNetId, remoteIpV4)) {

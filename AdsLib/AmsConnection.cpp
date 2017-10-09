@@ -68,6 +68,7 @@ std::shared_ptr<NotificationDispatcher> AmsConnection::DispatcherListGet(const V
 AmsConnection::AmsConnection(Router& __router, IpV4 __destIp)
     : router(__router),
     socket(__destIp, ADS_TCP_SERVER_PORT),
+    refCount(0),
     invokeId(0),
     destIp(__destIp),
     ownIp(socket.Connect())
@@ -81,10 +82,10 @@ AmsConnection::~AmsConnection()
     receiver.join();
 }
 
-NotifyMapping AmsConnection::CreateNotifyMapping(uint32_t hNotify, Notification& notification)
+NotifyMapping AmsConnection::CreateNotifyMapping(uint32_t hNotify, std::shared_ptr<Notification> notification)
 {
-    const auto dispatcher = DispatcherListAdd(notification.connection);
-    notification.hNotify(hNotify);
+    const auto dispatcher = DispatcherListAdd(notification->connection);
+    notification->hNotify(hNotify);
     dispatcher->Emplace(hNotify, notification);
     return NotifyMapping {hNotify, dispatcher};
 }

@@ -34,18 +34,26 @@ long AmsRouter::AddRoute(AmsNetId ams, const IpV4& ip)
     std::lock_guard<std::recursive_mutex> lock(mutex);
 
     const auto oldConnection = GetConnection(ams);
+    if (oldConnection && !(ip == oldConnection->destIp)) {
+        /**
+           There is already a route for this AmsNetId, but with
+           a different IP. The old route has to be deleted, first!
+         */
+        return ROUTERERR_PORTALREADYINUSE;
+    }
+
     auto conn = connections.find(ip);
     if (conn == connections.end()) {
-        const auto isFirst = connections.empty();
         conn = connections.emplace(ip, std::unique_ptr<AmsConnection>(new AmsConnection { *this, ip })).first;
 
-        if (isFirst) {
+        /** in case no local AmsNetId was set previously, we derive one */
+        if (!localAddr) {
             localAddr = AmsNetId {conn->second->ownIp};
         }
     }
 
+    conn->second->refCount++;
     mapping[ams] = conn->second.get();
-    DeleteIfLastConnection(oldConnection);
     return !conn->second->ownIp;
 }
 
@@ -55,9 +63,11 @@ void AmsRouter::DelRoute(const AmsNetId& ams)
 
     auto route = mapping.find(ams);
     if (route != mapping.end()) {
-        const AmsConnection* conn = route->second;
-        mapping.erase(route);
-        DeleteIfLastConnection(conn);
+        AmsConnection* conn = route->second;
+        if (0 == --conn->refCount) {
+            mapping.erase(route);
+            DeleteIfLastConnection(conn);
+        }
     }
 }
 
@@ -110,6 +120,12 @@ long AmsRouter::GetLocalAddress(uint16_t port, AmsAddr* pAddr)
     return ADSERR_CLIENT_PORTNOTOPEN;
 }
 
+void AmsRouter::SetLocalAddress(AmsNetId netId)
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex);
+    localAddr = netId;
+}
+
 long AmsRouter::GetTimeout(uint16_t port, uint32_t& timeout)
 {
     std::lock_guard<std::recursive_mutex> lock(mutex);
@@ -151,7 +167,7 @@ std::map<IpV4, std::unique_ptr<AmsConnection> >::iterator AmsRouter::__GetConnec
     return connections.end();
 }
 
-long AmsRouter::AddNotification(AmsRequest& request, uint32_t* pNotification, Notification& notify)
+long AmsRouter::AddNotification(AmsRequest& request, uint32_t* pNotification, std::shared_ptr<Notification> notify)
 {
     if (request.bytesRead) {
         *request.bytesRead = 0;
