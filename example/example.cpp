@@ -8,8 +8,8 @@ static void NotifyCallback(const AmsAddr* pAddr, const AdsNotificationHeader* pN
 {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(pNotification + 1);
     std::cout << std::setfill('0') <<
-        "NetId 0x" << pAddr->netId <<
-        "hUser 0x" << std::hex << hUser <<
+        "NetId: " << pAddr->netId <<
+        " hUser 0x" << std::hex << hUser <<
         " sample time: " << std::dec << pNotification->nTimeStamp <<
         " sample size: " << std::dec << pNotification->cbSampleSize <<
         " value:";
@@ -179,6 +179,9 @@ void runExample(std::ostream& out)
 {
     static const AmsNetId remoteNetId { 192, 168, 0, 231, 1, 1 };
     static const char remoteIpV4[] = "ads-server";
+
+    // uncomment and adjust if automatic AmsNetId deduction is not working as expected
+    //AdsSetLocalAddress({192, 168, 0, 1, 1, 1});
 
     // add local route to your EtherCAT Master
     if (AdsAddRoute(remoteNetId, remoteIpV4)) {
